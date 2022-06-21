@@ -4,14 +4,8 @@
     "description": "Map description",
     "date": "2022-06-21",
     "locations": [
-        {
-            "name": "001 Test package",
-            "description": "Lore shit goes here!!!",
-            "identifier": "arr-001",
-            "x": -1094.359,
-            "y": 1165.538,
-            "z": 2.290,
-            "w": 1
-        }
+        {"x":-1079.6198730469,"identifier":"arr-001","w":1,"y":1183.0400390625,"name":"001 - Dire Dire Docks","z":3.7154922485352,"description":"I hope it didn't take you too many tries to get out here."},
+        {"x":1619.8059082031,"identifier":"arr-002","w":1,"y":-760.13098144531,"name":"002 - Sunset Motel","z":54.159477233887,"description":"Panam had a drink with you here."}
+
     ]
 }

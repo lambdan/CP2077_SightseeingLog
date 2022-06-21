@@ -44,7 +44,7 @@ end)
 registerHotkey("sslog_saveloc", "Save location to json", function()
 	local pos = Game.GetPlayer():GetWorldPosition()
 	local filename = "location_" .. tostring(os.date("%Y-%m-%d_%H.%M.%S")) .. ".json"
-	dumpLocation(pos.x, pos.y, pos.z, pos.w, "name", "desc", "identifier", filename)
+	dumpLocation(pos.x, pos.y, pos.z, pos.w, "NAME", "DESC", "ID", filename)
 	HUDMessage("Saved location to " .. filename)
 end)
 
@@ -401,7 +401,7 @@ function dumpLocation(x,y,z,w,name,desc,identifier,filename)
 		z = z,
 		w = w,
 		name = name,
-		desc = desc,
+		description = desc,
 		identifier = identifier
 	}
 
