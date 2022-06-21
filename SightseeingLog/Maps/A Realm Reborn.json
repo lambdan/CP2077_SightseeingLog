@@ -1,5 +1,5 @@
 {
-    "title": "Map title",
+    "title": "A Realm Reborn",
     "version": 1,
     "description": "Map description",
     "date": "2022-06-21",
@@ -7,6 +7,7 @@
         {
             "name": "001 Test package",
             "description": "Lore shit goes here!!!",
+            "identifier": "arr-001",
             "x": -1094.359,
             "y": 1165.538,
             "z": 2.290,

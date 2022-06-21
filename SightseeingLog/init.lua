@@ -10,11 +10,12 @@ local GameUI = require("Modules/GameUI.lua")
 local LEX = require("Modules/LuaEX.lua")
 
 local MAPS_FOLDER = "Maps/" -- should end with a /
-local MAP_DEFAULT = "Maps/packages1.map" -- full path to default map
+local MAP_DEFAULT = "Maps/A Realm Reborn.json" -- full path to default map
 
 local SETTINGS_FILE = "settings-1.0.json"
 local MOD_SETTINGS = { -- saved in SETTINGS_FILE (separate from game save)
-	MapPath = MAP_DEFAULT
+	MapPath = MAP_DEFAULT,
+	InRange = 0.3
 }
 
 local SESSION_DATA = { -- will persist with game saves
@@ -56,13 +57,13 @@ registerForEvent('onInit', function()
 	local nsMapsDisplayNames = {[1] = "None"}
 	local nsDefaultMap = 1
 	local nsCurrentMap = 1
-	for k,v in pairs( listFilesInFolder(MAPS_FOLDER, ".map") ) do
+	for k,v in pairs( listFilesInFolder(MAPS_FOLDER, ".json") ) do
 		local map_path = MAPS_FOLDER .. v
 		local read_map = readMap(map_path)
 
 		if read_map ~= nil then
 			local i = LEX.tableLen(mapsPaths) + 1
-			nsMapsDisplayNames[i] = read_map["display_name"] .. " (" .. read_map["amount"] .. " pkgs)"
+			nsMapsDisplayNames[i] = read_map.title
 			mapsPaths[i] = map_path
 			if map_path == MAP_DEFAULT then
 				nsDefaultMap = i
@@ -261,14 +262,13 @@ function checkIfPlayerNearAnyPackage()
 				HUDMessage("You have arrived at a vista")
 				table.insert(AT_LOCATION, pkg.identifier)
 			end
-			if SCANNER_OPEN then
+			if SCANNER_OPEN then -- "#collected"
 				table.insert(SESSION_DATA.collectedPackageIDs, pkg.identifier)
-				showCustomShardPopup("001 Pole", "Bunch of lore crap goes here yada yada yada")
+				showCustomShardPopup("Sightseeing Log", pkg.name .. "\n\n" .. pkg.description)
 			end
 		elseif LEX.tableHasValue(AT_LOCATION, pkg.identifier) and (not LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, pkg.identifier)) then
 			HUDMessage("You strayed too far away from the vista")
 			table.remove(AT_LOCATION, 1)
-
 		end
 	end
 
@@ -341,50 +341,21 @@ function listFilesInFolder(folder, ext)
 end
 
 function readMap(path)
-	--print("readMap", path)
 	if path == false or not LEX.fileExists(path) then
 		return nil
 	end
 
+	local file = io.open(path, "r")
+	local j = json.decode(file:read("*a"))
+	file:close()
+
 	local map = {
-		amount = 0,
-		display_name = LEX.basename(path),
-		display_name_amount = "",
-		identifier = LEX.basename(path), 
-		packages = {},
+		amount = LEX.tableLen(j.locations),
+		title = j.title,
+		packages = j.locations,
+		filename = LEX.basename(path), 
 		filepath = path
 	}
-
-	for line in io.lines(path) do
-		if (line ~= nil) and (line ~= "") and not (LEX.stringStarts(line, "#")) and not (LEX.stringStarts(line, "//")) then
-			if LEX.stringStarts(line, "DISPLAY_NAME:") then
-				map.display_name = LEX.trim(string.match(line, ":(.*)"))
-			elseif LEX.stringStarts(line, "IDENTIFIER:") then
-				map.identifier = LEX.trim(string.match(line, ":(.*)"))
-			else
-				-- regular coordinates
-				local components = {}
-				for c in string.gmatch(line, '([^ ]+)') do
-					table.insert(components,c)
-				end
-
-				local pkg = {}
-				pkg.x = tonumber(components[1])
-				pkg.y = tonumber(components[2])
-				pkg.z = tonumber(components[3])
-				pkg.w = tonumber(components[4])
-				pkg.identifier = map.identifier .. ": x=" .. tostring(pkg.x) .. " y=" .. tostring(pkg.y) .. " z=" .. tostring(pkg.z) .. " w=" .. tostring(pkg.w)
-				table.insert(map.packages, pkg)
-			end
-		end
-	end
-
-	map.amount = LEX.tableLen(map.packages)
-	if map.amount == 0 or map.display_name == nil or map.identifier == nil then
-		return nil
-	end
-
-	map.display_name_amount = map.display_name .. " (" .. tostring(map.amount) .. ")"
 
 	return map
 end
