@@ -15,7 +15,7 @@ local MAP_DEFAULT = "Maps/A Realm Reborn.json" -- full path to default map
 local SETTINGS_FILE = "settings-1.0.json"
 local MOD_SETTINGS = { -- saved in SETTINGS_FILE (separate from game save)
 	MapPath = MAP_DEFAULT,
-	InRange = 0.3
+	Range = 0.3
 }
 
 local SESSION_DATA = { -- will persist with game saves
@@ -33,7 +33,7 @@ local isPaused = true
 local modActive = true
 local NEED_TO_REFRESH = false
 
-local AT_LOCATION = {}
+local AT_LOCATION = false
 local SCANNER_OPEN = nil
 
 registerHotkey("sslog_whereami", "Where Am I?", function()
@@ -41,6 +41,12 @@ registerHotkey("sslog_whereami", "Where Am I?", function()
 	showCustomShardPopup("Where Am I?", "You are standing here:\nX:  " .. string.format("%.3f",pos["x"]) .. "\nY:  " .. string.format("%.3f",pos["y"]) .. "\nZ:  " .. string.format("%.3f",pos["z"]) .. "\nW:  " .. pos["w"])
 end)
 
+registerHotkey("sslog_saveloc", "Save location to json", function()
+	local pos = Game.GetPlayer():GetWorldPosition()
+	local filename = "location_" .. tostring(os.date("%Y-%m-%d_%H.%M.%S")) .. ".json"
+	dumpLocation(pos.x, pos.y, pos.z, pos.w, "name", "desc", "identifier", filename)
+	HUDMessage("Saved location to " .. filename)
+end)
 
 registerForEvent('onShutdown', function() -- mod reload, game shutdown etc
     GameSession.TrySave()
@@ -82,12 +88,24 @@ registerForEvent('onInit', function()
 
 		-- maps
 
-		nativeSettings.addSubcategory("/SightseeingLog/Maps", "Maps")
+		nativeSettings.addSubcategory("/SightseeingLog/Settings", "Settings")
 
-		nativeSettings.addSelectorString("/SightseeingLog/Maps", "Map", "Maps are stored in \'.../mods/Hidden Packages/Maps\''. If set to None the mod is disabled.", nsMapsDisplayNames, nsCurrentMap, nsDefaultMap, function(value)
+		nativeSettings.addSelectorString("/SightseeingLog/Settings", "Map", "Maps are stored in \'.../mods/SightseeingLog/Maps\''. If set to None the mod is disabled.", nsMapsDisplayNames, nsCurrentMap, nsDefaultMap, function(value)
 			MOD_SETTINGS.MapPath = mapsPaths[value]
 			saveSettings()
 			NEED_TO_REFRESH = true
+		end)
+
+		-- Parameters: path, label, desc, min, max, step, format, currentValue, defaultValue, callback, optionalIndex
+		nativeSettings.addRangeFloat("/SightseeingLog/Settings", "Range", "Increase this to make it easier to be in the right spot. In FFXIV it's usually very tight.", 0.1, 10, 0.1, "%.2f", MOD_SETTINGS.Range, 0.3, function(value)
+			MOD_SETTINGS.Range = value
+			saveSettings()
+		end)
+
+		nativeSettings.addRangeFloat("/SightseeingLog/Settings", "Reset progress", "Touch me to reset progress", 1, 10, 1, "%.2f", 1, 1, function(value)
+			SESSION_DATA = {
+				collectedPackageIDs = {}
+			}
 		end)
 
 		nativeSettings.addSubcategory("/SightseeingLog/Version", HiddenPackagesMetadata.title .. " version " .. HiddenPackagesMetadata.version .. " (" .. HiddenPackagesMetadata.date .. ")")
@@ -141,6 +159,7 @@ registerForEvent('onInit', function()
 	end)
 
 	GameSession.TryLoad()
+	NEED_TO_REFRESH = true
 
 end)
 
@@ -248,7 +267,7 @@ function changeMap(path)
 end
 
 function checkIfPlayerNearAnyPackage()
-	if (LOADED_MAP == nil) or (isPaused == true) or (isInGame == false) or (os.clock() < nextCheck) then
+	if (LOADED_MAP == nil) or (isPaused == true) or (isInGame == false) or (os.clock() < nextCheck) or (inVehicle()) then
 		-- no map is loaded/game is paused/game has not loaded/not time to check yet: return and do nothing
 		return
 	end
@@ -257,18 +276,25 @@ function checkIfPlayerNearAnyPackage()
 	local playerPos = Game.GetPlayer():GetWorldPosition() -- get player coordinates
 
 	for index,pkg in pairs(LOADED_MAP.packages) do -- iterate over packages in loaded map
-		if not (LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, pkg.identifier)) and (math.abs(playerPos.x - pkg.x) <= 0.3) and (math.abs(playerPos.y - pkg.y) <= 0.3) then
-			if not (LEX.tableHasValue(AT_LOCATION, pkg.identifier)) then
-				HUDMessage("You have arrived at a vista")
-				table.insert(AT_LOCATION, pkg.identifier)
+		if not (LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, pkg.identifier)) and (math.abs(playerPos.x - pkg.x) <= 10) and (math.abs(playerPos.y - pkg.y) <= 10) then
+			local d = Vector4.Distance(playerPos, ToVector4{x=pkg.x, y=pkg.y, z=pkg.z, w=pkg.w})
+			nextDelay = 0.1
+
+			if d <= MOD_SETTINGS.Range then
+				if (not LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, pkg.identifier)) and (not AT_LOCATION) then
+					HUDMessage("You have arrived at a vista")
+					AT_LOCATION = true
+				end
+				if (SCANNER_OPEN) and (AT_LOCATION) then -- "collected"
+					Game.GetAudioSystem():Play("ui_elevator_select")
+					table.insert(SESSION_DATA.collectedPackageIDs, pkg.identifier)
+					AT_LOCATION = false
+					showCustomShardPopup("Sightseeing Log", pkg.name .. "\n\n" .. pkg.description)
+				end
+			elseif (AT_LOCATION) and (not LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, pkg.identifier)) then
+				HUDMessage("You strayed too far away from the vista")
+				AT_LOCATION = false
 			end
-			if SCANNER_OPEN then -- "#collected"
-				table.insert(SESSION_DATA.collectedPackageIDs, pkg.identifier)
-				showCustomShardPopup("Sightseeing Log", pkg.name .. "\n\n" .. pkg.description)
-			end
-		elseif LEX.tableHasValue(AT_LOCATION, pkg.identifier) and (not LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, pkg.identifier)) then
-			HUDMessage("You strayed too far away from the vista")
-			table.remove(AT_LOCATION, 1)
 		end
 	end
 
@@ -276,14 +302,15 @@ function checkIfPlayerNearAnyPackage()
 end
 
 function HUDMessage(msg)
-	if os:clock() - HUDMessage_Last <= 1 then
+	--[[ if os:clock() - HUDMessage_Last <= 1 then
 		HUDMessage_Current = msg .. "\n" .. HUDMessage_Current
 	else
 		HUDMessage_Current = msg
 	end
 
 	GameHUD.ShowMessage(HUDMessage_Current)
-	HUDMessage_Last = os:clock()
+	HUDMessage_Last = os:clock() ]]
+	GameHUD.ShowMessage(msg)
 end
 
 function countCollected(MapPath)
@@ -365,4 +392,21 @@ function showCustomShardPopup(titel, text) -- from #cet-snippets @ discord
     shardUIevent.title = titel
     shardUIevent.text = text
     Game.GetUISystem():QueueEvent(shardUIevent)
+end
+
+function dumpLocation(x,y,z,w,name,desc,identifier,filename)
+	local loc = {
+		x = x,
+		y = y,
+		z = z,
+		w = w,
+		name = name,
+		desc = desc,
+		identifier = identifier
+	}
+
+	local file = io.open(filename, "w")
+	local j = json.encode(loc)
+	file:write(j)
+	file:close()
 end
