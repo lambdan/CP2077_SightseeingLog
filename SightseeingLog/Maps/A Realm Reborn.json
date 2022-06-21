@@ -1,0 +1,16 @@
+{
+    "title": "Map title",
+    "version": 1,
+    "description": "Map description",
+    "date": "2022-06-21",
+    "locations": [
+        {
+            "name": "001 Test package",
+            "description": "Lore shit goes here!!!",
+            "x": -1094.359,
+            "y": 1165.538,
+            "z": 2.290,
+            "w": 1
+        }
+    ]
+}
