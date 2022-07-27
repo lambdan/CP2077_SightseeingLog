@@ -1,7 +1,7 @@
 local HiddenPackagesMetadata = {
 	title = "Sightseeing Log",
 	version = "0.1",
-	date = "2022-06-21"
+	date = "2022-07-27"
 }
 
 local GameSession = require("Modules/GameSession.lua")
@@ -36,17 +36,18 @@ local NEED_TO_REFRESH = false
 local AT_LOCATION = false
 local SCANNER_OPEN = nil
 
-registerHotkey("sslog_whereami", "Where Am I?", function()
-	local pos = Game.GetPlayer():GetWorldPosition()
-	showCustomShardPopup("Where Am I?", "You are standing here:\nX:  " .. string.format("%.3f",pos["x"]) .. "\nY:  " .. string.format("%.3f",pos["y"]) .. "\nZ:  " .. string.format("%.3f",pos["z"]) .. "\nW:  " .. pos["w"])
+registerHotkey("sslog_openlog", "Open Sightseeing Log", function()
+	openJournal()
 end)
 
-registerHotkey("sslog_saveloc", "Save location to json", function()
+registerHotkey("sslog_saveloc", "(DEV) Save location to json", function()
 	local pos = Game.GetPlayer():GetWorldPosition()
 	local filename = "location_" .. tostring(os.date("%Y-%m-%d_%H.%M.%S")) .. ".json"
 	dumpLocation(pos.x, pos.y, pos.z, pos.w, "NAME", "DESC", "ID", filename)
 	HUDMessage("Saved location to " .. filename)
 end)
+
+
 
 registerForEvent('onShutdown', function() -- mod reload, game shutdown etc
     GameSession.TrySave()
@@ -54,6 +55,9 @@ registerForEvent('onShutdown', function() -- mod reload, game shutdown etc
 end)
 
 registerForEvent('onInit', function()
+	GameUI.Listen(function(state)
+        GameUI.PrintState(state)
+    end)
 	loadSettings()
 
 	LOADED_MAP = readMap(MOD_SETTINGS.MapPath)
@@ -102,11 +106,11 @@ registerForEvent('onInit', function()
 			saveSettings()
 		end)
 
-		nativeSettings.addRangeFloat("/SightseeingLog/Settings", "Reset progress", "Touch me to reset progress", 1, 10, 1, "%.2f", 1, 1, function(value)
-			SESSION_DATA = {
-				collectedPackageIDs = {}
-			}
-		end)
+		--nativeSettings.addRangeFloat("/SightseeingLog/Settings", "Reset progress", "Touch me to reset progress", 1, 10, 1, "%.2f", 1, 1, function(value)
+		--	SESSION_DATA = {
+		--		collectedPackageIDs = {}
+		--	}
+		--end)
 
 		nativeSettings.addSubcategory("/SightseeingLog/Version", HiddenPackagesMetadata.title .. " version " .. HiddenPackagesMetadata.version .. " (" .. HiddenPackagesMetadata.date .. ")")
 
@@ -162,73 +166,6 @@ registerForEvent('onInit', function()
 	NEED_TO_REFRESH = true
 
 end)
-
-
-function collectHP(packageIndex)
-	local pkg = LOADED_MAP.packages[packageIndex]
-
-	if not LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, pkg["identifier"]) then
-		table.insert(SESSION_DATA.collectedPackageIDs, pkg["identifier"])
-	end
-	
-	unmarkPackage(packageIndex)
-	despawnPackage(packageIndex)
-
-	local collected = countCollected(LOADED_MAP.filepath)
-	nativeSettings.refresh()
-	
-    if collected == LOADED_MAP.amount then
-    	-- got all packages
-    	Game.GetAudioSystem():Play('ui_jingle_quest_success')
-    	HUDMessage("ALL HIDDEN PACKAGES COLLECTED!")
-    	--showCustomShardPopup("All Hidden Packages collected!", "You have collected all " .. tostring(LOADED_MAP["amount"]) .. " packages from the map \"" .. LOADED_MAP["display_name"] .. "\"!")
-    else
-    	-- regular package pickup
-    	Game.GetAudioSystem():Play('ui_loot_rarity_legendary')
-    	local msg = "Hidden Package " .. tostring(collected) .. " of " .. tostring(LOADED_MAP.amount)
-    	HUDMessage(msg)
-    end	
-
-	local multiplier = 1
-	if MOD_SETTINGS.PackageMultiplier > 0 then
-		multiplier = MOD_SETTINGS.PackageMultiplier * collected
-	end
-
-	local money_reward = MOD_SETTINGS.MoneyPerPackage * multiplier
-	if money_reward	> 0 then
-		Game.AddToInventory("Items.money", money_reward)
-	end
-
-	local sc_reward = MOD_SETTINGS.StreetcredPerPackage * multiplier
-	if sc_reward > 0 then
-		Game.AddExp("StreetCred", sc_reward)
-	end
-
-	local xp_reward = MOD_SETTINGS.ExpPerPackage * multiplier
-	if xp_reward > 0 then
-		Game.AddExp("Level", xp_reward)
-	end
-
-	if MOD_SETTINGS.RandomRewardItemList then -- will be false if Disabled
-		math.randomseed(os.time())
-		local randomLine = RANDOM_ITEMS_POOL[math.random(1,#RANDOM_ITEMS_POOL)]
-		local item = randomLine
-		local amount = 1
-		
-		if string.find(randomLine, ",") then -- custom amount of item specified in ItemList
-			item, amount = randomLine:match("([^,]+),([^,]+)") -- split line at the ","-- https://stackoverflow.com/a/19269176
-			amount = tonumber(amount)
-		end
-
-		Game.AddToInventory(item, amount)
-		if amount > 1 then
-			HUDMessage("Got Item: " .. item .. " (" .. tostring(amount) .. ")")
-		else
-			HUDMessage("Got Item: " .. item)
-		end
-	end
-
-end
 
 function reset()
 	activePackages = {}
@@ -289,7 +226,7 @@ function checkIfPlayerNearAnyPackage()
 					Game.GetAudioSystem():Play("ui_elevator_select")
 					table.insert(SESSION_DATA.collectedPackageIDs, pkg.identifier)
 					AT_LOCATION = false
-					showCustomShardPopup("Sightseeing Log", pkg.name .. "\n\n" .. pkg.description)
+					showCustomShardPopup("Sightseeing Log - Entry Completed", pkg.name .. "\n\n" .. pkg.description)
 				end
 			elseif (AT_LOCATION) and (not LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, pkg.identifier)) then
 				HUDMessage("You strayed too far away from the vista")
@@ -409,4 +346,19 @@ function dumpLocation(x,y,z,w,name,desc,identifier,filename)
 	local j = json.encode(loc)
 	file:write(j)
 	file:close()
+end
+
+function openJournal()
+	local str = LOADED_MAP.title .. "    (" .. tostring(countCollected(LOADED_MAP.filepath)) .. "/" .. tostring(LOADED_MAP.amount) .. ")\n\n"
+	for i,p in pairs(LOADED_MAP.packages) do
+		if LEX.tableHasValue(SESSION_DATA.collectedPackageIDs, p.identifier) then
+			str = str .. "[X] "
+		else
+			str = str .. "[ ] "
+		end
+		str = str .. p.name .. "\n"
+		str = str .. "    \"" .. p.description .. "\"\n"
+		str = str .. "\n"
+	end
+	showCustomShardPopup("Sightseeing Log", str)
 end

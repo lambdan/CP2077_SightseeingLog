@@ -1,0 +1,51 @@
+{
+  "title": "A Realm... Born",
+  "version": 1,
+  "locations": [
+    {
+      "x": -1542.2073974609,
+      "y": 1199.5732421875,
+      "z": 57.000007629395,
+      "w": 1,
+      "identifier": "djs-arb-001",
+      "name": "Nocturne...",
+      "description": "Decisions are made in these chairs"
+    },
+    {
+      "x": -1079.6198730469,
+      "y": 1183.0400390625,
+      "z": 3.7154922485352,
+      "w": 1,
+      "identifier": "djs-arb-002",
+      "name": "Dire Dire Docks",
+      "description": "I went pole jumping for... a vista?"
+    },
+    {
+      "x": 3405.6826171875,
+      "w": 1,
+      "y": -377.14498901367,
+      "z": 140.9974822998,
+      "identifier": "djs-arb-003",
+      "name": "Band of Brothers",
+      "description": "On top of an antenna, surrounded by high tech equipment, I hear someone playing an instrument"
+    },
+    {
+      "x": 1668.2744140625,
+      "y": -730.91674804688,
+      "z": 49.923057556152,
+      "w": 1,
+      "identifier": "djs-arb-004",
+      "name": "On the road again",
+      "description": "I cannot believe these prices"
+    },
+    {
+      "x": -642.28601074219,
+      "y": 847.83660888672,
+      "z": 18.901634216309,
+      "w": 1,
+      "identifier": "djs-arb-005",
+      "name": "Phreaks",
+      "description": "There are some freaky people around these streets, but in here it smells good atleast"
+    }
+  ]
+}
