@@ -10,7 +10,7 @@ local GameUI = require("Modules/GameUI.lua")
 local LEX = require("Modules/LuaEX.lua")
 
 local MAPS_FOLDER = "Maps/" -- should end with a /
-local MAP_DEFAULT = "Maps/A Realm Reborn.json" -- full path to default map
+local MAP_DEFAULT = "Maps/A Realm Born.json" -- full path to default map
 
 local SETTINGS_FILE = "settings-1.0.json"
 local MOD_SETTINGS = { -- saved in SETTINGS_FILE (separate from game save)
@@ -209,7 +209,7 @@ function checkIfPlayerNearAnyPackage()
 		return
 	end
 
-	local nextDelay = 1.0 -- default check interval
+	local nextDelay = 0.5 -- default check interval, shorter than Hidden Packages because you cant the location
 	local playerPos = Game.GetPlayer():GetWorldPosition() -- get player coordinates
 
 	for index,pkg in pairs(LOADED_MAP.packages) do -- iterate over packages in loaded map
